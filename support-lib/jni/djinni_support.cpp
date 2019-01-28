@@ -72,7 +72,17 @@ void jniShutdown() {
 JNIEnv * jniGetThreadEnv() {
     assert(g_cachedJVM);
     JNIEnv * env = nullptr;
-    const jint get_res = g_cachedJVM->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    jint get_res = g_cachedJVM->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    #ifdef EXPERIMENTAL_AUTO_CPP_THREAD_ATTACH
+    if (get_res == JNI_EDETACHED) {
+        get_res = g_cachedJVM->AttachCurrentThread(&env, nullptr);
+        thread_local struct DetachOnExit {
+            ~DetachOnExit() {
+                g_cachedJVM->DetachCurrentThread();
+            }
+        } detachOnExit;
+    }
+    #endif
     if (get_res != 0 || !env) {
         // :(
         std::abort();
@@ -585,7 +595,7 @@ void jniSetPendingFromCurrent(JNIEnv * env, const char * ctx) noexcept {
     jniDefaultSetPendingFromCurrent(env, ctx);
 }
 
-void jniDefaultSetPendingFromCurrent(JNIEnv * env, const char * /*ctx*/) noexcept {
+void jniDefaultSetPendingFromCurrentImpl(JNIEnv * env) {
     assert(env);
     try {
         throw;
@@ -595,9 +605,17 @@ void jniDefaultSetPendingFromCurrent(JNIEnv * env, const char * /*ctx*/) noexcep
     } catch (const std::exception & e) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"), e.what());
     }
+}
 
-    // noexcept will call terminate() for anything not caught above (i.e.
-    // exceptions which aren't std::exception subclasses).
+void jniDefaultSetPendingFromCurrent(JNIEnv * env, const char * /*ctx*/) noexcept {
+ 
+    /* It is necessary to go through a layer of indirection here because this
+    function is marked noexcept, but the implementation may still throw. 
+    Any exceptions which are not caught (i.e. exceptions which aren't 
+    std::exception subclasses) will result in a call to terminate() since this
+    function is marked noexcept */
+	
+	jniDefaultSetPendingFromCurrentImpl(env);
 }
 
 template class ProxyCache<JavaProxyCacheTraits>;

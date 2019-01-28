@@ -110,6 +110,7 @@ When the Djinni file(s) are ready, from the command line or a bash script you ca
        \
        --jni-out JNI_OUTPUT_FOLDER \
        --ident-jni-class NativeFooBar \ # This adds a "Native" prefix to JNI class
+       --ident-jni-file NativeFooBar \ # This adds a prefix to the JNI filenames otherwise the cpp and jni filenames are the same.
        \
        --objc-out OBJC_OUTPUT_FOLDER \
        --objc-type-prefix DB \ # Apple suggests Objective-C classes have a prefix for each defined type.
@@ -506,6 +507,14 @@ There is basically two variables you would like to modify:
 For more informations, take a look at https://github.com/leetal/ios-cmake.
 
 - `ENABLE_BITCODE`: enable/disable the bitcode generation.
+
+## Android Parcelable records
+
+Djinni supports generating records that implements `android.os.parcelable`.
+
+In order to do that, there are two steps needed:
+- deriving the records that should be parcelable with the keyword parcelable: `deriving(parcelable)`
+- run Djinni with the following flag `--java-implement-android-os-parcelable true`
 
 ## Community Links
 
